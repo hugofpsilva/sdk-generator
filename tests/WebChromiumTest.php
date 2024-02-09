@@ -4,6 +4,11 @@ namespace Tests;
 
 class WebChromiumTest extends Base
 {
+    protected string $sdkName = 'web';
+    protected string $sdkPlatform = 'client';
+    protected string $sdkLanguage = 'web';
+    protected string $version = '0.0.1';
+
     protected string $language = 'web';
     protected string $class = 'Appwrite\SDK\Language\Web';
     protected array $build = [
@@ -14,7 +19,7 @@ class WebChromiumTest extends Base
         'docker run --rm -v $(pwd):/app -w /app/tests/sdks/web mcr.microsoft.com/playwright:v1.15.0-focal npm run build',
     ];
     protected string $command =
-        'docker run --rm -v $(pwd):/app -e BROWSER=chromium -w /app/tests/sdks/web mcr.microsoft.com/playwright:v1.15.0-focal node tests.js';
+        'docker run --network="mockapi" --rm -v $(pwd):/app -e BROWSER=chromium -w /app/tests/sdks/web mcr.microsoft.com/playwright:v1.15.0-focal node tests.js';
 
     protected array $expectedOutput = [
         ...Base::FOO_RESPONSES,
@@ -23,5 +28,8 @@ class WebChromiumTest extends Base
         ...Base::LARGE_FILE_RESPONSES,
         ...Base::EXCEPTION_RESPONSES,
         ...Base::REALTIME_RESPONSES,
+        ...Base::QUERY_HELPER_RESPONSES,
+        ...Base::PERMISSION_HELPER_RESPONSES,
+        ...Base::ID_HELPER_RESPONSES
     ];
 }

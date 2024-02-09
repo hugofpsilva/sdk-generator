@@ -2,39 +2,92 @@ module {{spec.title | caseUcfirst}}
     class Query
         class << Query
             def equal(attribute, value)
-                return addQuery(attribute, "equal", value)
+                return add_query(attribute, "equal", value)
             end
 
-            def notEqual(attribute, value)
-                return Query.addQuery(attribute, "notEqual", value)
+            def not_equal(attribute, value)
+                return add_query(attribute, "notEqual", value)
             end
-            def lesser(attribute, value)
-                return Query.addQuery(attribute, "lesser", value)
+
+            def less_than(attribute, value)
+                return add_query(attribute, "lessThan", value)
             end
-            def lesserEqual(attribute, value)
-                return Query.addQuery(attribute, "lesserEqual", value)
+            
+            def less_than_equal(attribute, value)
+                return add_query(attribute, "lessThanEqual", value)
             end
-            def greater(attribute, value)
-                return Query.addQuery(attribute, "greater", value)
+            
+            def greater_than(attribute, value)
+                return add_query(attribute, "greaterThan", value)
             end
-            def greaterEqual(attribute, value)
-                return Query.addQuery(attribute, "equal", value)
+            
+            def greater_than_equal(attribute, value)
+                return add_query(attribute, "greaterThanEqual", value)
             end
+
+            def is_null(attribute)
+                return "isNull(\"#{attribute}\")"
+            end
+
+            def is_not_null(attribute)
+                return "isNotNull(\"#{attribute}\")"
+            end
+
+            def between(attribute, start, ending)
+                return "between(\"#{attribute}\", #{parse_values(start)}, #{parse_values(ending)})"
+            end
+
+            def starts_with(attribute, value)
+                return add_query(attribute, "startsWith", value)
+            end
+
+            def ends_with(attribute, value)
+                return add_query(attribute, "endsWith", value)
+            end
+
+            def select(attributes)
+                return "select([#{attributes.map {|attribute| "\"#{attribute}\""}.join(',')}])"
+            end
+            
             def search(attribute, value)
-                return Query.addQuery(attribute, "search", value)
+                return add_query(attribute, "search", value)
+            end
+
+            def order_asc(attribute)
+                return "orderAsc(\"#{attribute}\")"
+            end
+
+            def order_desc(attribute)
+                return "orderDesc(\"#{attribute}\")"
+            end
+
+            def cursor_before(id)
+                return "cursorBefore(\"#{id}\")"
+            end
+
+            def cursor_after(id)
+                return "cursorAfter(\"#{id}\")"
+            end
+
+            def limit(limit)
+                return "limit(#{limit})"
+            end
+
+            def offset(offset)
+                return "offset(#{offset})"
             end
 
             private
 
-            def addQuery(attribute, oper, value)
+            def add_query(attribute, method, value)
                 if value.is_a?(Array)
-                    "#{attribute}.#{oper}.(#{value.map {|item| parseValues(item)}.join(',')})"
+                    "#{method}(\"#{attribute}\", [#{value.map {|item| parse_values(item)}.join(',')}])"
                 else
-                   return "#{attribute}.#{oper}.(#{parseValues(value)})"
+                   return "#{method}(\"#{attribute}\", [#{parse_values(value)}])"
 				end
             end
 
-            def parseValues(value)
+            def parse_values(value)
                 return value.is_a?(String) ? "\"#{value}\"" : value
             end
         end

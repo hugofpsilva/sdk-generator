@@ -7,6 +7,11 @@ use Appwrite\SDK\Language\CLI;
 
 class CLINode14Test extends Base
 {
+    protected string $sdkName = 'cli';
+    protected string $sdkPlatform = 'server';
+    protected string $sdkLanguage = 'cli';
+    protected string $version = '0.0.1';
+
     protected string $language = 'cli';
     protected string $class = 'Appwrite\SDK\Language\CLI';
     protected array $build = [
@@ -14,7 +19,7 @@ class CLINode14Test extends Base
         'cp tests/languages/cli/test.js tests/sdks/cli/test.js'
     ];
     protected string $command =
-        'docker run --rm -v $(pwd):/app -w /app/tests/sdks/cli node:14-alpine node test.js';
+        'docker run --network="mockapi" --rm -v $(pwd):/app -w /app/tests/sdks/cli node:14-alpine node test.js';
 
     protected array $expectedOutput = [
         ...Base::FOO_RESPONSES,

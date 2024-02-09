@@ -7,11 +7,6 @@ use stdClass;
 class Swagger2 extends Spec
 {
     /**
-     * @var array
-     */
-    private array $serviceParams = [];
-
-    /**
      * @return string
      */
     public function getTitle()
@@ -112,7 +107,6 @@ class Swagger2 extends Spec
                             $list[$tag] = [
                                 'name' => $tag,
                                 'methods' => $methods,
-                                'globalParams' => $this->serviceParams[$tag] ?? [],
                             ];
                         }
                     }
@@ -138,31 +132,32 @@ class Swagger2 extends Spec
     public function getMethods($service)
     {
         $list = [];
-        $serviceParams= [];
         $security = $this->getAttribute('securityDefinitions', []);
         $paths = $this->getAttribute('paths', []);
 
         foreach ($paths as $pathName => $path) {
             foreach ($path as $methodName => $method) {
-                $auth = $method['x-appwrite']['auth'] ?? [];
+                $methodAuth = $method['x-appwrite']['auth'] ?? [];
+                $methodSecurity = $method['security'][0] ?? [];
 
                 if (isset($method['tags']) && is_array($method['tags']) && in_array($service, $method['tags'])) {
-                    if (isset($auth) && is_array($auth)) {
-                        foreach ($auth as $i => $node) {
-                            $auth[$i] = (array_key_exists($i, $security)) ? $security[$i] : [];
-                        }
+                    foreach ($methodAuth as $i => $node) {
+                        $methodAuth[$i] = (array_key_exists($i, $security)) ? $security[$i] : [];
+                    }
+                    foreach ($methodSecurity as $i => $node) {
+                        $methodSecurity[$i] = (array_key_exists($i, $security)) ? $security[$i] : [];
                     }
 
                     $responses = $method['responses'];
                     $responseModel = '';
                     $emptyResponse = true;
-                    foreach($responses as $code => $desc) {
-                        if($code != '204') {
+                    foreach ($responses as $code => $desc) {
+                        if ($code != '204') {
                             $emptyResponse = false;
                         }
-                        if(isset($desc['schema']) && isset($desc['schema']['$ref'])) {
+                        if (isset($desc['schema']) && isset($desc['schema']['$ref'])) {
                             $responseModel = $desc['schema']['$ref'];
-                            if(!empty($responseModel)) {
+                            if (!empty($responseModel)) {
                                 $responseModel = str_replace('#/definitions/', '', $responseModel);
                             }
                         }
@@ -176,7 +171,8 @@ class Swagger2 extends Spec
                         'packaging' => $method['x-appwrite']['packaging'] ?? false,
                         'title' => $method['summary'] ?? '',
                         'description' => $method['description'] ?? '',
-                        'security' => [$auth] ?? [],
+                        'auth' => [$methodAuth] ?? [],
+                        'security' => [$methodSecurity] ?? [],
                         'consumes' => $method['consumes'] ?? [],
                         'cookies' => $method['x-appwrite']['cookies'] ?? false,
                         'type' => $method['x-appwrite']['type'] ?? false,
@@ -191,6 +187,10 @@ class Swagger2 extends Spec
                         'emptyResponse' => $emptyResponse,
                         'responseModel' => $responseModel,
                     ];
+
+                    if ($output['type'] == 'graphql') {
+                        $output['headers']['x-sdk-graphql'] = "true";
+                    }
 
                     if (isset($method['consumes']) && is_array($method['consumes'])) {
                         foreach ($method['consumes'] as $consume) {
@@ -207,10 +207,10 @@ class Swagger2 extends Spec
                             'class' => $parameter['x-class'] ?? null,
                             'description' => $parameter['description'] ?? '',
                             'required' => $parameter['required'] ?? false,
+                            'nullable' => $parameter['x-nullable'] ?? false,
                             'default' => $parameter['default'] ?? null,
                             'example' => $parameter['x-example'] ?? null,
                             'isUploadID' => $parameter['x-upload-id'] ?? false,
-                            'isGlobal' => $parameter['x-global'] ?? false,
                             'array' => [
                                 'type' => $parameter['items']['type'] ?? '',
                             ],
@@ -221,10 +221,6 @@ class Swagger2 extends Spec
                         }
 
                         $param['default'] = (is_array($param['default'])) ? json_encode($param['default']) : $param['default'];
-
-                        if(($parameter['x-global'] ?? false)) {
-                            $serviceParams[$param['name']] = $param;
-                        }
 
                         switch ($parameter['in']) {
                             case 'header':
@@ -248,10 +244,9 @@ class Swagger2 extends Spec
                                     $param['type'] = $value['type'] ?? null;
                                     $param['description'] = $value['description'] ?? '';
                                     $param['required'] = (in_array($key, $bodyRequired));
-                                    $param['default'] = $value['default'] ?? null;
                                     $param['example'] = $value['x-example'] ?? null;
-                                    $param['isGlobal'] = $value['x-global'] ?? false;
                                     $param['isUploadID'] = $value['x-upload-id'] ?? false;
+                                    $param['nullable'] = $value['x-nullable'] ?? false;
                                     $param['array'] = [
                                         'type' => $value['items']['type'] ?? '',
                                     ];
@@ -266,8 +261,6 @@ class Swagger2 extends Spec
                                 }
 
                                 continue 2;
-
-                                break;
                         }
 
                         $output['parameters']['all'][] = $param;
@@ -282,8 +275,6 @@ class Swagger2 extends Spec
             }
         }
 
-        $this->serviceParams[$service] = $serviceParams;
-
         return $list;
     }
 
@@ -297,7 +288,6 @@ class Swagger2 extends Spec
         $security = $this->getAttribute('securityDefinitions', []);
 
         foreach ($security as $key => $definition) {
-
             if (isset($definition['in']) && $definition['in'] === 'header') {
                 $list[] = [
                     'key' => $key,
@@ -310,38 +300,42 @@ class Swagger2 extends Spec
         return $list;
     }
 
-    public function getDefinitions() {
+    public function getDefinitions()
+    {
         $list = [];
-        $definition = $this->getAttribute('definitions',[]);
+        $definition = $this->getAttribute('definitions', []);
         foreach ($definition as $key => $schema) {
-            if($key == 'any') continue;
+            if ($key == 'any') {
+                continue;
+            }
             $sch = [
                 "name" => $key,
-                "properties"=> $schema['properties'] ?? [],
-                "description"=> $schema['description'] ?? [],
+                "properties" => $schema['properties'] ?? [],
+                "description" => $schema['description'] ?? [],
                 "required" => $schema['required'] ?? [],
                 "additionalProperties" => $schema['additionalProperties'] ?? []
             ];
-            if(isset($sch['properties'])) {
-                foreach($sch['properties'] as $name => $def) {
+            if (isset($sch['properties'])) {
+                foreach ($sch['properties'] as $name => $def) {
                     $sch['properties'][$name]['name'] = $name;
                     $sch['properties'][$name]['description'] = $def['description'];
-                    $sch['properties'][$name]['required'] =  in_array($name,$sch['required']);
-                    if(isset($def['items']['$ref'])) {
+                    $sch['properties'][$name]['example'] = $def['x-example'];
+                    $sch['properties'][$name]['required'] =  in_array($name, $sch['required']);
+                    if (isset($def['items']['$ref'])) {
                         //nested model
                         $sch['properties'][$name]['sub_schema'] = str_replace('#/definitions/', '', $def['items']['$ref']);
                     }
 
-                    if(isset($def['items']['x-anyOf'])) {
+                    if (isset($def['items']['x-anyOf'])) {
                         //nested model
                         $sch['properties'][$name]['sub_schemas'] = \array_map(fn($schema) => str_replace('#/definitions/', '', $schema['$ref']), $def['items']['x-anyOf']);
                     }
 
-                    if(isset($def['items']['x-oneOf'])) {
+                    if (isset($def['items']['x-oneOf'])) {
                         //nested model
                         $sch['properties'][$name]['sub_schemas'] = \array_map(fn($schema) => str_replace('#/definitions/', '', $schema['$ref']), $def['items']['x-oneOf']);
                     }
-            }
+                }
             }
             $list[$key] = $sch;
         }

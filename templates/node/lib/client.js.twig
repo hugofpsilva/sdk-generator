@@ -1,4 +1,6 @@
+const os = require('os');
 const URL = require('url').URL;
+const https = require("https");
 const axios = require('axios');
 const FormData = require('form-data');
 const {{spec.title | caseUcfirst}}Exception = require('./exception.js');
@@ -9,8 +11,13 @@ class Client {
     constructor() {
         this.endpoint = '{{spec.endpoint}}';
         this.headers = {
+            'accept-encoding': '*',
             'content-type': '',
-            'x-sdk-version': '{{spec.title | caseDash}}:{{ language.name | caseLower }}:{{ sdk.version }}',
+            'user-agent' : `{{spec.title | caseUcfirst}}{{language.name | caseUcfirst}}SDK/{{ sdk.version }} (${os.type()}; ${os.version()}; ${os.arch()})`,
+            'x-sdk-name': '{{ sdk.name }}',
+            'x-sdk-platform': '{{ sdk.platform }}',
+            'x-sdk-language': '{{ language.name | caseLower }}',
+            'x-sdk-version': '{{ sdk.version }}',
 {% for key,header in spec.global.defaultHeaders %}
             '{{key}}' : '{{header}}',
 {% endfor %}
@@ -75,11 +82,6 @@ class Client {
     }
       
     async call(method, path = '', headers = {}, params = {}, responseType = 'json') {
-        if(this.selfSigned) { // Allow self signed requests
-            process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0;
-        }
-
-
         headers = Object.assign({}, this.headers, headers);
 
         let contentType = headers['content-type'].toLowerCase();
@@ -119,6 +121,10 @@ class Client {
             json: (contentType.startsWith('application/json')),
             responseType: responseType
         };
+        if (this.selfSigned) {
+            // Allow self signed requests
+            options.httpsAgent = new https.Agent({ rejectUnauthorized: false });
+        }
         try {
             let response = await axios(options);
             return response.data;

@@ -1,0 +1,14 @@
+	apiParams := map[string]interface{}{
+{% for parameter in method.parameters.query %}
+		"{{ parameter.name }}": {{ parameter.name | caseUcfirst }},
+{% endfor %}
+{% for parameter in method.parameters.body %}
+		"{{ parameter.name }}": {{ parameter.name | caseUcfirst }},
+{% endfor %}
+	}
+
+	apiHeaders := map[string]interface{}{
+{% for key, header in method.headers %}
+		"{{ key }}": "{{ header }}",
+{% endfor %}
+	}

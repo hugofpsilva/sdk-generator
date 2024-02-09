@@ -1,4 +1,5 @@
 const os = require('os');
+const https = require("https");
 const axios = require("axios");
 const JSONbig = require("json-bigint")({ storeAsString: false });
 const FormData = require("form-data");
@@ -12,8 +13,11 @@ class Client {
     this.endpoint = '{{spec.endpoint}}';
     this.headers = {
       'content-type': '',
-      'x-sdk-version': '{{spec.title | caseDash}}:{{ language.name | caseLower }}:{{ sdk.version }}',
-      'User-Agent' : `{{spec.title | caseUcfirst}}CLI/{{ sdk.version }} (${os.type()} ${os.version()}; ${os.arch()})`,
+      'x-sdk-name': '{{ sdk.name }}',
+      'x-sdk-platform': '{{ sdk.platform }}',
+      'x-sdk-language': '{{ language.name | caseLower }}',
+      'x-sdk-version': '{{ sdk.version }}',
+      'user-agent' : `{{spec.title | caseUcfirst}}CLI/{{ sdk.version }} (${os.type()} ${os.version()}; ${os.arch()})`,
 {% for key,header in spec.global.defaultHeaders %}
       '{{key}}' : '{{header}}',
 {% endfor %}
@@ -97,11 +101,6 @@ class Client {
     params = {},
     responseType = "json"
   ) {
-    if (this.selfSigned == true) {
-      // Allow self signed requests
-      process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0;
-    }
-
     headers = Object.assign({}, this.headers, headers);
 
     let contentType = headers["content-type"].toLowerCase();
@@ -134,8 +133,13 @@ class Client {
         method.toUpperCase() === "GET" || contentType.startsWith("multipart/form-data") ? formData : params,
       json: contentType.startsWith("application/json"),
       transformRequest: method.toUpperCase() === "GET" || contentType.startsWith("multipart/form-data") ? undefined : (data) =>  JSONbig.stringify(data),
+      transformResponse: [ (data) =>  data ? JSONbig.parse(data) : data ],
       responseType: responseType,
     };
+    if (this.selfSigned == true) {
+      // Allow self signed requests
+      options.httpsAgent = new https.Agent({ rejectUnauthorized: false });
+    }
     try {
       let response = await axios(options);
       if (response.headers["set-cookie"]) {
